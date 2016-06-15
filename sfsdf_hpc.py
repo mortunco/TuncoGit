@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+##!/usr/bin/env python
 ### this hpc version ###
-### deneme deneme ###
+### v.01 ###
 
 #### eger bunu goruyorsam ####
 import os
@@ -9,19 +9,19 @@ import subprocess
 import cPickle as pickle
 
 
-with open('/Volumes/blackhole/reference_dictionaries/reference_dict.p','rb') as fp:
+with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/reference_dict.p','rb') as fp:
 	fileprefix_reference= pickle.load(fp)
 fp.close()
 
-with open('/Volumes/blackhole/reference_dictionaries/FILEPREFIXbridgeCLINICAL.p','rb') as fp:
+with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/FILEPREFIXbridgeCLINICAL.p','rb') as fp:
 	bridge= pickle.load(fp)
 fp.close()
 
-with open('/Volumes/blackhole/reference_dictionaries/clinical_reference_dict.p','rb') as fp:
+with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/clinical_reference_dict.p','rb') as fp:
 	clinical_reference= pickle.load(fp)
 fp.close()
 
-with open('/Volumes/blackhole/reference_dictionaries/folderprefix_reference_dict.p','rb') as fp:
+with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/folderprefix_reference_dict.p','rb') as fp:
 	folder_prefix=pickle.load(fp)
 fp.close()
 
@@ -46,7 +46,7 @@ if clinical_reference['SP113005'][0] != 'DO51159':
 if folder_prefix['d4fa1f86-ceb6-11e5-bcb8-d4714d100685'][1] != 'PRAD-CA':
 	raise ValueError, 'Your folder reference dictionary has problems, Check dictionary or Recreate it !!!'
 
-topdirectory='/Volumes/blackhole/icgc'
+topdirectory='/mnt/home/tmorova15/RS/vcf_analysis'
 os.chdir(topdirectory)
 
 project_names = list(set([folder_prefix[item][1] for item in os.listdir('input/')]))
@@ -58,69 +58,70 @@ for project_id in project_names:
 	os.mkdir('final/%s' % project_id)
 
 
-bed_file_input="/Volumes/blackhole/highconf_250wider.txt"
-SnpSiftjarpath='/Users/morova/snpEff/SnpSift.jar'
-SnpEffjarpath='/Users/morova/snpEff/snpEff.jar'
-annotation_file_path='/Volumes/blackhole/common_all_20160601.vcf'
+bed_file_input="/mnt/kufs/scratch/tmorova15/references/highconf_250wider.txt"
+SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
+SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
+annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
 snp_filter_option = "\"(! ID =~ 'rs' ) & (isHet(GEN[TUMOUR]))\""
 indel_filter_option = "\"(! ID =~ 'rs' )\""
 
 
 
-#directory_path='/Volumes/blackhole/0b140a8c-d2e0-11e5-9065-4a655c6878de'
-#filenames=os.listdir(directory_path)
-#os.chdir(directory_path)
-#snv_file_count=0
-#indel_file_count=0
 
 
 
 
+os.mkdir('./final/Problematic_id')
 
 for folder in os.listdir('input/'):
-	analysis_method = folder_prefix[folder][2]
-	os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
 
-	output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
-	### Bootstrappingi burada yapacagiz ###
+	if folder not in folder_prefix.keys():
+		os.mkdir('./final/Problematic_id/%s' % folder)
 
-	for name in os.listdir('input/%s' % folder):
+	else:
+		analysis_method = folder_prefix[folder][2]
+		os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
 
-		if bool(re.search('snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
-			analysis_id=name.split('.')[0]
+		output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
+		### Bootstrappingi burada yapacagiz ###
 
-			vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method ]
-			r1=subprocess.call(vcf_isolation_bash_script)
+		for name in os.listdir('input/%s' % folder):
 
-			intermediate_file= output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method + '.recode.vcf' ### This file keeps the record of spesific mutations filtered by the bed file
+			if bool(re.search('snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
+				analysis_id=name.split('.')[0]
 
-			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'final.' + analysis_id+'.snv_mnv_'+analysis_method+ '.vcf'])
+				vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method ]
+				r1=subprocess.call(vcf_isolation_bash_script)
 
-			subprocess.call(annotation_script,shell=True)
+				intermediate_file= output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method + '.recode.vcf' ### This file keeps the record of spesific mutations filtered by the bed file
 
+				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+											'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'final.' + analysis_id+'.snv_mnv_'+analysis_method+ '.vcf'])
 
-
-			#p1=subprocess.Popen(["java", "-jar", SnpSiftjarpath, 'annotate','-id', annotation_file_path, intermediate_file], stdout= subprocess.PIPE)
-			#p2=subprocess.Popen(["java" , "-Xmx4g", "-jar", SnpEffjarpath, "eff",'GRCh37.75','-'], stdin=p1.stdout,stdout= subprocess.PIPE)
-			#final_output = open(output_directory +"final." + analysis_id + ".snv_mnv_" + analysis_method+".vcf", 'w')
-			#p3=subprocess.call(["java" ,"-jar",SnpSiftjarpath, "filter", snp_filter_option], stdin=p2.stdout,stdout = final_output)
+				subprocess.call(annotation_script,shell=True)
 
 
 
+				#p1=subprocess.Popen(["java", "-jar", SnpSiftjarpath, 'annotate','-id', annotation_file_path, intermediate_file], stdout= subprocess.PIPE)
+				#p2=subprocess.Popen(["java" , "-Xmx4g", "-jar", SnpEffjarpath, "eff",'GRCh37.75','-'], stdin=p1.stdout,stdout= subprocess.PIPE)
+				#final_output = open(output_directory +"final." + analysis_id + ".snv_mnv_" + analysis_method+".vcf", 'w')
+				#p3=subprocess.call(["java" ,"-jar",SnpSiftjarpath, "filter", snp_filter_option], stdin=p2.stdout,stdout = final_output)
 
-		elif bool(re.search('indel.vcf.gz$', name)):
 
 
-			analysis_id=name.split('.')[0]
 
-			vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".indel_" + analysis_method ]
-			r1=subprocess.call(vcf_isolation_bash_script)
+			elif bool(re.search('indel.vcf.gz$', name)):
 
-			intermediate_file= output_directory+"unannotated." + analysis_id + ".indel_" + analysis_method + ".recode.vcf"
 
-			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',indel_filter_option,'>' ,output_directory+'final.' + analysis_id+'.indel_'+analysis_method+ '.vcf'])
+				analysis_id=name.split('.')[0]
 
-			subprocess.call(annotation_script,shell=True)
+				vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".indel_" + analysis_method ]
+				r1=subprocess.call(vcf_isolation_bash_script)
+
+				intermediate_file= output_directory+"unannotated." + analysis_id + ".indel_" + analysis_method + ".recode.vcf"
+
+				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+											'java' ,'-jar', SnpSiftjarpath,'filter',indel_filter_option,'>' ,output_directory+'final.' + analysis_id+'.indel_'+analysis_method+ '.vcf'])
+
+				subprocess.call(annotation_script,shell=True)
 
