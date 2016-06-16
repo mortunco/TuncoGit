@@ -9,19 +9,19 @@ import subprocess
 import cPickle as pickle
 
 
-with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/reference_dict.p','rb') as fp:
+with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/reference_dict.p','rb') as fp:
 	fileprefix_reference= pickle.load(fp)
 fp.close()
 
-with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/FILEPREFIXbridgeCLINICAL.p','rb') as fp:
+with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/FILEPREFIXbridgeCLINICAL.p','rb') as fp:
 	bridge= pickle.load(fp)
 fp.close()
 
-with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/clinical_reference_dict.p','rb') as fp:
+with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/clinical_reference_dict.p','rb') as fp:
 	clinical_reference= pickle.load(fp)
 fp.close()
 
-with open('/mnt/home/tmorova15/RS/references/reference_dictionaries/folderprefix_reference_dict.p','rb') as fp:
+with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/folderprefix_reference_dict.p','rb') as fp:
 	folder_prefix=pickle.load(fp)
 fp.close()
 
@@ -46,7 +46,7 @@ if clinical_reference['SP113005'][0] != 'DO51159':
 if folder_prefix['d4fa1f86-ceb6-11e5-bcb8-d4714d100685'][1] != 'PRAD-CA':
 	raise ValueError, 'Your folder reference dictionary has problems, Check dictionary or Recreate it !!!'
 
-topdirectory='/mnt/home/tmorova15/RS/vcf_analysis'
+topdirectory='/mnt/kufs/scratch/tmorova15/vcf_analysis'
 os.chdir(topdirectory)
 
 project_names = list(set([folder_prefix[item][1] for item in os.listdir('input/')]))
@@ -62,14 +62,17 @@ bed_file_input="/mnt/kufs/scratch/tmorova15/references/highconf_250wider.txt"
 SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
-snp_filter_option = "\"(! ID =~ 'rs' ) & (isHet(GEN[TUMOUR]))\""
+snp_filter_option = "\"(! ID =~ 'rs' ) & (isHet(GEN[1]))\""
 indel_filter_option = "\"(! ID =~ 'rs' )\""
 
 
 
 
 
-
+snv_log= open('snv_number.txt','w')
+snv_log.write('#### patientid found_mutations|number_of_total_mutations\n')
+indel_log =open('indel_number.txt','w')
+indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 
 os.mkdir('./final/Problematic_id')
 
@@ -82,6 +85,8 @@ for folder in os.listdir('input/'):
 		analysis_method = folder_prefix[folder][2]
 		os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
 
+		snv_log.write(folder_prefix[folder][0] + '\t') ## write to the file which contains all of the numbers
+
 		output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
 		### Bootstrappingi burada yapacagiz ###
 
@@ -90,15 +95,31 @@ for folder in os.listdir('input/'):
 			if bool(re.search('snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
 				analysis_id=name.split('.')[0]
 
-				vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method ]
-				r1=subprocess.call(vcf_isolation_bash_script)
 
-				intermediate_file= output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method + '.recode.vcf' ### This file keeps the record of spesific mutations filtered by the bed file
+				print "Annotating %s SNV" % folder_prefix[folder][0]
 
-				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-											'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'final.' + analysis_id+'.snv_mnv_'+analysis_method+ '.vcf'])
+				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
 
-				subprocess.call(annotation_script,shell=True)
+				subprocess.check_call(annotation_script, shell=True)
+
+
+				print "Cleaving spesific regions given by %s" % bed_file_input
+				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method ]
+				r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
+
+
+				### This is for reading log files  and creating a single file which contains all of the number of the mutations.###
+				with open(output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method +'.log' , 'r') as logfile:
+					for line in logfile:
+						if 'possible' and 'After filtering, kept' in line:
+							foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+							total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
+							snv_log.write(foundmuts + '|' + total+ '\t')
+
+				logfile.close()
+
+
 
 
 
@@ -115,13 +136,23 @@ for folder in os.listdir('input/'):
 
 				analysis_id=name.split('.')[0]
 
-				vcf_isolation_bash_script=["vcftools","--gzvcf", './input/%s/' % folder  + name , "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "unannotated." + analysis_id + ".indel_" + analysis_method ]
-				r1=subprocess.call(vcf_isolation_bash_script)
 
-				intermediate_file= output_directory+"unannotated." + analysis_id + ".indel_" + analysis_method + ".recode.vcf"
 
-				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path, intermediate_file, '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-											'java' ,'-jar', SnpSiftjarpath,'filter',indel_filter_option,'>' ,output_directory+'final.' + analysis_id+'.indel_'+analysis_method+ '.vcf'])
+				print "Annotating %s Indel" % folder_prefix[folder][0]
+				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+				subprocess.check_call(annotation_script,shell=True)
 
-				subprocess.call(annotation_script,shell=True)
 
+				print "Cleaving spesific regions given by %s" % bed_file_input
+				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
+				r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
+
+				with open(output_directory + "final." + analysis_id + ".indel_" + analysis_method +'.log' , 'r') as logfile:
+					for line in logfile:
+						if 'possible' and 'After filtering, kept' in line:
+							foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+							total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
+							indel_log.write(foundmuts + '|' + total+ '\t')
+
+				logfile.close()
