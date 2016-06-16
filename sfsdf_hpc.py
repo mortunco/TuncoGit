@@ -156,3 +156,11 @@ for folder in os.listdir('input/'):
 							indel_log.write(foundmuts + '|' + total+ '\t')
 
 				logfile.close()
+
+
+	snv_log('\n')
+	indel_log('\n')
+
+
+snv_log.close()
+indel_log.close()
