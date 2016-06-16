@@ -73,8 +73,10 @@ indel_filter_option = "\"(! ID =~ 'rs' )\""
 #snv_file_count=0
 #indel_file_count=0
 
-
-
+snv_log= open('./final/snv_number.txt','w')
+snv_log.write('#### patientid found_mutations|number_of_total_mutations\n')
+indel_log =open('./final/indel_number.txt','w')
+indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 
 
 for folder in os.listdir('input/'):
@@ -101,7 +103,15 @@ for folder in os.listdir('input/'):
 
 			#intermediate_file= output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method + '.recode.vcf' ### This file keeps the record of spesific mutations filtered by the bed file
 
+					### This is for reading log files  and creating a single file which contains all of the number of the mutations.###
+			with open(output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method +'.log' , 'r') as logfile:
+				for line in logfile:
+					if 'possible' and 'After filtering, kept' in line:
+						foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+						total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
+						snv_log.write(foundmuts + '|' + total+ '\t')
 
+			logfile.close()
 
 
 
@@ -128,3 +138,18 @@ for folder in os.listdir('input/'):
 			r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 			#subprocess.call(annotation_script,shell=True)
 
+			with open(output_directory + "final." + analysis_id + ".indel_" + analysis_method +'.log' , 'r') as logfile:
+				for line in logfile:
+					if 'possible' and 'After filtering, kept' in line:
+						foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+						total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
+						indel_log.write(foundmuts + '|' + total+ '\t')
+
+			logfile.close()
+
+	snv_log('\n')
+	indel_log('\n')
+
+
+snv_log.close()
+indel_log.close()
