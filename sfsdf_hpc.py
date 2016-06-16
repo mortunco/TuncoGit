@@ -69,9 +69,9 @@ indel_filter_option = "\"(! ID =~ 'rs' )\""
 
 
 
-snv_log= open('snv_number.txt','w')
+snv_log= open('./final/snv_number.txt','w')
 snv_log.write('#### patientid found_mutations|number_of_total_mutations\n')
-indel_log =open('indel_number.txt','w')
+indel_log =open('./final/indel_number.txt','w')
 indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 
 os.mkdir('./final/Problematic_id')
