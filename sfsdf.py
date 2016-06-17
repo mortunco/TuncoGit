@@ -86,19 +86,20 @@ for folder in os.listdir('input/'):
 	output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
 	### Bootstrappingi burada yapacagiz ###
 
+	print 'new patient'
 	for name in os.listdir('input/%s' % folder):
 
 		if bool(re.search('snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
 			analysis_id=name.split('.')[0]
 
-			print 'annotating '
-			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+			print 'Annotating SNV'
+			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '-v' ,'|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','-v','|', \
 										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
 
 			subprocess.check_call(annotation_script,shell=True)
-			vcf_isolation_bash_script=["vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method ]
+			vcf_isolation_bash_script=["vcftools","--vcf", output_directory+ 'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method ]
 
-
+			print 'Cleaving SNV VCF'
 			r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 
 			#intermediate_file= output_directory + "unannotated." + analysis_id + ".snv_mnv_" + analysis_method + '.recode.vcf' ### This file keeps the record of spesific mutations filtered by the bed file
@@ -127,14 +128,14 @@ for folder in os.listdir('input/'):
 
 
 			analysis_id=name.split('.')[0]
-
-			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+			print 'Annotating Indel'
+			annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name ,'-v', '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','-v','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',indel_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
 
 			subprocess.check_call(annotation_script,shell=True)
 			vcf_isolation_bash_script=["vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
 
-
+			print 'Cleaving Indel VCF'
 			r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 			#subprocess.call(annotation_script,shell=True)
 
