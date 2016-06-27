@@ -62,8 +62,15 @@ bed_file_input="/mnt/kufs/scratch/tmorova15/references/highconf_250wider.txt"
 SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
-snp_filter_option = "\"(! ID =~ 'rs' ) & (isHet(GEN[1]))\""
-indel_filter_option = "\"(! ID =~ 'rs' )\""
+
+broad_snp_filter_option = "\"(! ID =~ 'rs' )\""
+sanger_snp_filter_option= "\"(! exists SNP ) & (HE='1')\""
+dkfz_snp_filter_option ="\"(! ID =~ 'rs') & (HE='1') \""
+
+sanger_indel_filter_option = "\"(! ID =~ 'rs' )\""
+dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & (HE='1')\""
+broad_indel_filter_option=  "\"(! ID =~ 'rs' )\""
+
 
 
 
@@ -81,10 +88,19 @@ for folder in os.listdir('input/'):
 	if folder not in folder_prefix.keys():
 		os.mkdir('./final/Problematic_id/%s' % folder)
 
-	else:
-		analysis_method = folder_prefix[folder][2]
-		os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
 
+
+	else:
+
+		### Python gives a file already existed error, so this line is for to prevent that error.
+		#### If a patient folder is created for another caller, code does not create a new dir and write to the currently existed dir
+		if os.path.exists('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0])):
+			pass
+		else:
+			os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
+
+		### analysis method : sanger, dkfz, broad
+		analysis_method = folder_prefix[folder][2]
 		snv_log.write(folder_prefix[folder][0] + '\t') ## write to the file which contains all of the numbers
 
 		output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
@@ -92,14 +108,27 @@ for folder in os.listdir('input/'):
 
 		for name in os.listdir('input/%s' % folder):
 
-			if bool(re.search('snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
+			if bool(re.search('somatic.snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
 				analysis_id=name.split('.')[0]
 
 
 				print "Annotating %s SNV" % folder_prefix[folder][0]
 
-				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+				if analysis_method == 'sanger':
+
+					annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+
+				elif analysis_method == 'dkfz':
+
+					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+
+				#elif belki muse eklenir buraya:
+
+				else:
+					### broad icin ###
+					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',broad_snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+
 
 				subprocess.check_call(annotation_script, shell=True)
 
@@ -112,7 +141,9 @@ for folder in os.listdir('input/'):
 				### This is for reading log files  and creating a single file which contains all of the number of the mutations.###
 				with open(output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method +'.log' , 'r') as logfile:
 					for line in logfile:
-						if 'possible' and 'After filtering, kept' in line:
+						line = line.rstrip('\n')
+						if ('After filtering' in line) and ('possible' in line):
+
 							foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
 							total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
 							snv_log.write(foundmuts + '|' + total+ '\t')
@@ -131,16 +162,33 @@ for folder in os.listdir('input/'):
 
 
 
-			elif bool(re.search('indel.vcf.gz$', name)):
-
-
+			elif bool(re.search('somatic.indel.vcf.gz$', name)):
 				analysis_id=name.split('.')[0]
 
 
-
 				print "Annotating %s Indel" % folder_prefix[folder][0]
-				annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+
+				if analysis_method == 'sanger':
+
+					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',sanger_indel_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+
+
+				elif analysis_method == 'dkfz':
+
+					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+
+
+				#elif belki muse eklenir buraya:
+
+				else:
+
+					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
+										'java' ,'-jar', SnpSiftjarpath,'filter',broad_indel_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+
+
+
+
 				subprocess.check_call(annotation_script,shell=True)
 
 
@@ -150,7 +198,9 @@ for folder in os.listdir('input/'):
 
 				with open(output_directory + "final." + analysis_id + ".indel_" + analysis_method +'.log' , 'r') as logfile:
 					for line in logfile:
-						if 'possible' and 'After filtering, kept' in line:
+						line = line.rstrip('\n')
+						if ('After filtering' in line) and ('possible' in line):
+
 							foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
 							total = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(2)
 							indel_log.write(foundmuts + '|' + total+ '\t')
@@ -158,8 +208,13 @@ for folder in os.listdir('input/'):
 				logfile.close()
 
 
-	snv_log('\n')
-	indel_log('\n')
+			
+
+
+
+
+	snv_log.write(analysis_method+'-SNV'+'\n')
+	indel_log.write(analysis_method + '-Indel' + '\n')
 
 
 snv_log.close()
