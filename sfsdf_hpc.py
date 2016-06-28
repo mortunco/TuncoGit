@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import cPickle as pickle
+import time
 
 
 with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/reference_dict.p','rb') as fp:
@@ -59,6 +60,9 @@ for project_id in project_names:
 
 
 bed_file_input="/mnt/kufs/scratch/tmorova15/references/highconf_250wider.txt"
+chromsizes='/mnt/kufs/scratch/tmorova15/references/GRCh37.genome.txt'
+bedtoolspath='/mnt/kufs/scratch/tmorova15/bcbio/bin/bedtools'
+randombedcount=10
 SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
@@ -101,10 +105,25 @@ for folder in os.listdir('input/'):
 
 		### analysis method : sanger, dkfz, broad
 		analysis_method = folder_prefix[folder][2]
-		snv_log.write(folder_prefix[folder][0] + '\t') ## write to the file which contains all of the numbers
+		snv_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+		indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t')## write to the file which contains all of the numbers
 
 		output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
-		### Bootstrappingi burada yapacagiz ###
+
+		start=time.time()
+		if not os.path.exists('./final/randombeds'): #creates random bed directory
+			os.mkdir('./final/randombeds')
+			### Random bed generation if not exists ###
+			print 'Genarating Random Bed Files...'
+			for i in range(randombedcount):
+				random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'>', './final/randombeds/random_' + '%s' % str(i)])
+				subprocess.check_call(random_commandline,shell= True)
+
+		print 'Took', time.time() - start,'to run....'
+		### Random Vcf Genaration ###
+		if not os.path.exists(output_directory + 'random_vcfs'):
+			os.mkdir(output_directory + 'random_vcfs')
+
 
 		for name in os.listdir('input/%s' % folder):
 
@@ -112,29 +131,29 @@ for folder in os.listdir('input/'):
 				analysis_id=name.split('.')[0]
 
 
-				print "Annotating %s SNV" % folder_prefix[folder][0]
+				print "**Annotating %s SNV" % folder_prefix[folder][0]
 
 				if analysis_method == 'sanger':
 
-					annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+					annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 				elif analysis_method == 'dkfz':
 
-					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 				#elif belki muse eklenir buraya:
 
 				else:
 					### broad icin ###
 					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',broad_snp_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method])
+										'java' ,'-jar', SnpSiftjarpath,'filter',broad_snp_filter_option,'>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 
 				subprocess.check_call(annotation_script, shell=True)
 
 
-				print "Cleaving spesific regions given by %s" % bed_file_input
-				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method ]
+				print "***Cleaving spesific regions given by %s" % bed_file_input
+				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method ]
 				r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 
 
@@ -149,6 +168,22 @@ for folder in os.listdir('input/'):
 							snv_log.write(foundmuts + '|' + total+ '\t')
 
 				logfile.close()
+
+				### bootstrap ###
+				for n,randombed in enumerate(os.listdir('./final/randombeds')):
+					print randombed
+					vcf_random_isolation_bash_script=' '.join(["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,'./final/randombeds/'+ randombed , "--out", output_directory + "random_vcfs/random_"+ str(n) + ".snv_mnv_" + analysis_method ])
+					subprocess.check_call(vcf_random_isolation_bash_script,	shell=True)
+					with open(output_directory + "random_vcfs/random_"+ str(n) + ".snv_mnv_" + analysis_method + '.log' , 'r') as logfile:
+						for line in logfile:
+							line = line.rstrip('\n')
+							if ('After filtering' in line) and ('possible' in line):
+
+								foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+								snv_log.write(foundmuts +  '\t')
+
+					logfile.close()
+
 
 
 
@@ -166,17 +201,17 @@ for folder in os.listdir('input/'):
 				analysis_id=name.split('.')[0]
 
 
-				print "Annotating %s Indel" % folder_prefix[folder][0]
+				print "**Annotating %s Indel" % folder_prefix[folder][0]
 
 				if analysis_method == 'sanger':
 
 					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',sanger_indel_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+										'java' ,'-jar', SnpSiftjarpath,'filter',sanger_indel_filter_option,'>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
 				elif analysis_method == 'dkfz':
 
-					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+					annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
 				#elif belki muse eklenir buraya:
@@ -184,16 +219,16 @@ for folder in os.listdir('input/'):
 				else:
 
 					annotation_script=' '.join(['java', '-jar' , SnpSiftjarpath , 'annotate' , '-id' ,annotation_file_path,  './input/%s/' % folder  + name , '|', 'java', '-Xmx4g','-jar',SnpEffjarpath,'eff', 'GRCh37.75' , '-','|', \
-										'java' ,'-jar', SnpSiftjarpath,'filter',broad_indel_filter_option,'>' ,output_directory+'annotated_full_' + analysis_id+'.indel_'+analysis_method])
+										'java' ,'-jar', SnpSiftjarpath,'filter',broad_indel_filter_option,'>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
 
 
-				subprocess.check_call(annotation_script,shell=True)
+				#subprocess.check_call(annotation_script,shell=True)
 
 
-				print "Cleaving spesific regions given by %s" % bed_file_input
-				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full_' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
+				print "***Cleaving spesific regions given by %s" % bed_file_input
+				vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
 				r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 
 				with open(output_directory + "final." + analysis_id + ".indel_" + analysis_method +'.log' , 'r') as logfile:
@@ -208,13 +243,32 @@ for folder in os.listdir('input/'):
 				logfile.close()
 
 
+				### bootstrap ###
+				for n,randombed in enumerate(os.listdir('./final/randombeds')):
+
+					vcf_random_isolation_bash_script=' '.join(["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, "--bed" ,'./final/randombeds/'+ randombed , "--out", output_directory + "random_vcfs/random_"+ str(n) + ".indel_" + analysis_method ])
+					subprocess.check_call(vcf_random_isolation_bash_script,	shell=True)
+					with open(output_directory + "random_vcfs/random_"+ str(n) + ".indel_" + analysis_method + '.log' , 'r') as logfile:
+						for line in logfile:
+							line = line.rstrip('\n')
+							if ('After filtering' in line) and ('possible' in line):
+
+								foundmuts = re.search('After filtering, kept (.+?) out of a possible (.+?) Sites', line).group(1)
+								snv_log.write(foundmuts +  '\t')
+
+					logfile.close()
+
+
+
+
+
 			
 
 
 
 
-	snv_log.write(analysis_method+'-SNV'+'\n')
-	indel_log.write(analysis_method + '-Indel' + '\n')
+	snv_log.write('\n')
+	indel_log.write('\n')
 
 
 snv_log.close()
