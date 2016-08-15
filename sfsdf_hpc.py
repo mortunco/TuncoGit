@@ -14,10 +14,15 @@ parser = argparse.ArgumentParser(description='This code runs annotation of VCFs 
 parser.add_argument('-p',type=str, help='path of the top folder which contains input and final directories.')
 args=parser.parse_args()
 
+def whattimeisit():
+	whattimeistit=time.localtime()
+	days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+	return '{0}/{1}/{2} - {6} - {3}:{4}:{5}'.format(time.localtime()[0],time.localtime()[1],time.localtime()[2],time.localtime()[3],time.localtime()[4],time.localtime()[5],days[time.localtime()[6]])
+
+
 for item in vars(args): ###
 	if getattr(args,item) == None:
 		raise ValueError , "All arguments must be set"
-
 
 
 with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/reference_dict.p','rb') as fp:
@@ -39,8 +44,9 @@ fp.close()
 
 print "------------------------------------------------------------"
 print 'Initializing Reference Check...'
+print time.time()
 
-print 'Checking File Prefix Reference'
+print whattimeisit(),'Checking File Prefix Reference'
 
 if fileprefix_reference['a9ec7d9e-b179-4782-a589-43c7d1642be9'][0] != 'DO51159':
 	raise ValueError , 'Your File Prefix Dictionary has problems, Check dictionary or Recreate it!!!'
@@ -63,7 +69,7 @@ print topdirectory
 
 #topdirectory='/mnt/kufs/scratch/tmorova15/vcf_analysis'
 os.chdir(topdirectory)
-print os.getcwd()
+print whattimeisit(),os.getcwd()
 #project_names = list(set([folder_prefix[item][1] for item in os.listdir('input/')]))
 
 project_names =[]
@@ -77,8 +83,8 @@ for item in os.listdir('input/'):
 project_names=list(set(project_names))
 
 
-print '%s  projects detected, single folder for each project is being created' % len(project_names)
-print project_names
+print whattimeisit(),'%s  projects detected, single folder for each project is being created' % len(project_names)
+print whattimeisit(),project_names
 
 for project_id in project_names:
 	os.mkdir('final/%s' % project_id)
@@ -146,7 +152,7 @@ for folder in os.listdir('input/'):
 			if not os.path.exists('./final/randombeds'): #creates random bed directory
 				os.mkdir('./final/randombeds')
 				### Random bed generation if not exists ###
-				print 'Genarating Random Bed Files...'
+				print whattimeisit(), 'Genarating Random Bed Files...'
 				for i in range(randombedcount):
 					random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'>', './final/randombeds/random_' + '%s' % str(i)])
 					subprocess.check_call(random_commandline,shell= True)
@@ -164,7 +170,9 @@ for folder in os.listdir('input/'):
 					analysis_id=name.split('.')[0]
 
 					start=time.time()
-					print "**Annotating %s SNV" % folder_prefix[folder][0]
+
+
+
 
 					if analysis_method == 'sanger':
 
@@ -182,11 +190,12 @@ for folder in os.listdir('input/'):
 											'java' ,'-jar', SnpSiftjarpath,'filter',broad_snp_filter_option,'>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 
-					subprocess.check_call(annotation_script, shell=True)
+					if not os.path.exists(output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method): ### This prevents useless annotation.
+						print whattimeisit(), "**Annotating %s SNV" % folder_prefix[folder][0]
+						subprocess.check_call(annotation_script, shell=True)
+						print whattimeisit(), 'Annotation of SNV Took', time.time() - start,'to run....'
 
-					print 'Annotation of SNV Took', time.time() - start,'to run....'
-
-					print "***Cleaving spesific regions given by %s" % bed_file_input
+					print whattimeisit(), "***Cleaving spesific regions given by %s" % bed_file_input
 					start=time.time()
 					#vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , \
 					#						   "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method]
@@ -207,11 +216,11 @@ for folder in os.listdir('input/'):
 
 					count=count.split()
 					total=total.split()
-					print count,total,'snv'
-					print 'Cleavage of SNV Took', time.time() - start,'to run....'
+
+					print whattimeisit(), 'Cleavage of SNV Took', time.time() - start,'to run....'
 
 
-					print count[0], 'SNV mutations found in', total[0]
+					print whattimeisit(), count[0], 'SNV mutations found in', total[0]
 
 					### This is for reading log files  and creating a single file which contains all of the number of the mutations.###
 
@@ -234,12 +243,13 @@ for folder in os.listdir('input/'):
 					snv_log.write(str(random_counter/float(randombedcount)) + '\t')
 
 					snv_log.flush()
-					print 'Bootstraping of SNV Took', time.time() - start,'to run....'
-				elif bool(re.search('somatic.indel.vcf.gz$', name)):
+					print whattimeisit(), 'Bootstraping of SNV Took', time.time() - start,'to run....'
+
+				elif bool(re.search('somatic.indel.vcf.gz$', name)): #### INDEL PART ####
 					analysis_id=name.split('.')[0]
 					start=time.time()
 
-					print "**Annotating %s Indel" % folder_prefix[folder][0]
+
 
 					if analysis_method == 'sanger':
 
@@ -260,12 +270,12 @@ for folder in os.listdir('input/'):
 											'java' ,'-jar', SnpSiftjarpath,'filter',broad_indel_filter_option,'>' ,output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
-					print 'Tunc you are so good man. So good....'
+					if not os.path.exists(output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method):  ### This prevents useless annotation.
+						print whattimeisit(),"**Annotating %s Indel" % folder_prefix[folder][0]
+						subprocess.check_call(annotation_script,shell=True)
+						print whattimeisit(),'Annotation of Indel Took', time.time() - start,'to run....'
 
-					subprocess.check_call(annotation_script,shell=True)
-					print 'Annotation of Indel Took', time.time() - start,'to run....'
-
-					print "***Cleaving spesific regions given by %s" % bed_file_input
+					print whattimeisit(),"***Cleaving spesific regions given by %s" % bed_file_input
 					# vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
 					# r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 
@@ -284,9 +294,9 @@ for folder in os.listdir('input/'):
 
 					count=count.split()
 					total=total.split()
-					print count[0], 'Indel mutations found in', total[0]
+					print whattimeisit(), count[0], 'Indel mutations found in', total[0]
 					indel_log.write(str(count[0]) + '|' + str(total[0]) + '\t')
-					print 'Cleavage of Indel Took', time.time() - start,'to run....'
+					print whattimeisit(), 'Cleavage of Indel Took', time.time() - start,'to run....'
 
 					start=time.time()
 					random_counter=0
@@ -303,7 +313,7 @@ for folder in os.listdir('input/'):
 					indel_log.write(str(random_counter/float(randombedcount)) + '\t')
 					indel_log.flush()
 
-					print 'Bootstraping of Indel Took', time.time() - start,'to run....'
+					print whattimeisit(), 'Bootstraping of Indel Took', time.time() - start,'to run....'
 
 
 
@@ -318,4 +328,4 @@ for folder in os.listdir('input/'):
 snv_log.close()
 indel_log.close()
 
-print 'Process has finalized without any error ! Well Done !!'
+print whattimeisit(),'Process has finalized without any error ! Well Done !!'
