@@ -12,6 +12,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser(description='This code runs annotation of VCFs and filtration of the annotated file based on a given location file')
 parser.add_argument('-p',type=str, help='path of the top folder which contains input and final directories.')
+parser.add_argument('-l',type=str, help='bed formatted full file path that tell in which locations we should survey.')
 args=parser.parse_args()
 
 def whattimeisit():
@@ -87,10 +88,11 @@ print whattimeisit(),'%s  projects detected, single folder for each project is b
 print whattimeisit(),project_names
 
 for project_id in project_names:
-	os.mkdir('final/%s' % project_id)
+	if not os.path.exists('final/%s' % project_id):
+		os.mkdir('final/%s' % project_id)
 
 
-bed_file_input="/mnt/kufs/scratch/tmorova15/references/highconf_250wider.txt"
+bed_file_input=args.l
 chromsizes='/mnt/kufs/scratch/tmorova15/references/GRCh37.genome.txt'
 bedtoolspath='/mnt/kufs/scratch/tmorova15/bcbio/bin/bedtools'
 randombedcount=1000
@@ -99,11 +101,13 @@ SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
 
 broad_snp_filter_option = "\"(! ID =~ 'rs' )\""
-sanger_snp_filter_option= "\"(! exists SNP ) & (HE='1')\""
+#sanger_snp_filter_option= "\"(! exists SNP ) & (HE='1')\"" #This was old because snpsifts gt option removes format column from the file.
+sanger_snp_filter_option = "\"(! exists SNP ) & ((exists '1|0') || (exists '0|1'))\""
 dkfz_snp_filter_option ="\"(! ID =~ 'rs') & (HE='1') \""
 
-sanger_indel_filter_option = "\"(! ID =~ 'rs' )\""
-dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & (HE='1')\""
+sanger_indel_filter_option = "\"(! ID =~ 'rs' )\"" 
+#dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & (HE='1')\"" This was old because snpsifts gt option removes format column from the file.
+dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & ((exists '1/0') || (exists '0/1'))\""
 broad_indel_filter_option=  "\"(! ID =~ 'rs' )\""
 
 
@@ -118,8 +122,10 @@ indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 
 snv_log.flush()
 indel_log.flush()
+for project_id in project_names:
+	if not os.path.exists('final/Problematic_id'):
+		os.mkdir('./final/Problematic_id')
 
-os.mkdir('./final/Problematic_id')
 repeat_cheacker=[]
 for folder in os.listdir('input/'):
 
@@ -176,11 +182,11 @@ for folder in os.listdir('input/'):
 
 					if analysis_method == 'sanger':
 
-						annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
+						annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt','-u' './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 					elif analysis_method == 'dkfz':
 
-						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
+						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', '-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 					#elif belki muse eklenir buraya:
 
@@ -194,7 +200,7 @@ for folder in os.listdir('input/'):
 						print whattimeisit(), "**Annotating %s SNV" % folder_prefix[folder][0]
 						subprocess.check_call(annotation_script, shell=True)
 						print whattimeisit(), 'Annotation of SNV Took', time.time() - start,'to run....'
-
+					print whattimeisit(),"**Patient %s SNV has already annotated, cleaving step will be initiated" % folder_prefix[folder][0]
 					print whattimeisit(), "***Cleaving spesific regions given by %s" % bed_file_input
 					start=time.time()
 					#vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, "--bed" ,  bed_file_input , \
@@ -259,7 +265,7 @@ for folder in os.listdir('input/'):
 
 					elif analysis_method == 'dkfz':
 
-						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
+						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', '-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
 					#elif belki muse eklenir buraya:
@@ -274,7 +280,7 @@ for folder in os.listdir('input/'):
 						print whattimeisit(),"**Annotating %s Indel" % folder_prefix[folder][0]
 						subprocess.check_call(annotation_script,shell=True)
 						print whattimeisit(),'Annotation of Indel Took', time.time() - start,'to run....'
-
+					print whattimeisit(),"**Patient %s SNV has already annotated, cleaving step will be initiated"  % folder_prefix[folder][0]
 					print whattimeisit(),"***Cleaving spesific regions given by %s" % bed_file_input
 					# vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
 					# r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
