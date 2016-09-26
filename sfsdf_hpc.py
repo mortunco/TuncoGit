@@ -1,6 +1,6 @@
 ##! /usr/bin/env python
 ### this hpc version ###
-### v.03 ### after paralelization ###
+### STABLE VERSION ###
 
 #### eger bunu goruyorsam ####
 import os
@@ -10,6 +10,7 @@ import cPickle as pickle
 import time
 import sys
 import argparse
+import collections
 parser = argparse.ArgumentParser(description='This code runs annotation of VCFs and filtration of the annotated file based on a given location file')
 parser.add_argument('-p',type=str, help='path of the top folder which contains input and final directories.')
 parser.add_argument('-l',type=str, help='bed formatted full file path that tell in which locations we should survey.')
@@ -20,6 +21,14 @@ def whattimeisit():
 	days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 	return '{0}/{1}/{2} - {6} - {3}:{4}:{5}'.format(time.localtime()[0],time.localtime()[1],time.localtime()[2],time.localtime()[3],time.localtime()[4],time.localtime()[5],days[time.localtime()[6]])
 
+def variantclassificationcounter(filename,textfilename):
+	script=' '.join(['cat',filename,'|', 'grep','-o','Variant_Classification=.*','|' 'cut','-f','2','-d','='])
+	output=subprocess.check_output(script,shell=True).split('\n')
+	counter=collections.Counter(output)
+	for key,value in zip(counter.keys(),counter.values()): textfilename.write(str(key)+'|'+str(value)+';')
+	textfilename.write('\n')
+	textfilename.flush()
+	return
 
 for item in vars(args): ###
 	if getattr(args,item) == None:
@@ -100,24 +109,37 @@ SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
 
+
+### SNP ###
+sanger_snp_filter_option = "\"((FILTER = 'PASS') && (! exists SNP)) && ((GEN[1].GT == '1|0') || (GEN[1].GT == '0|1'))\"" ### filtering NON PASS option is added.
+#sanger_snp_filter_option = "\"(! exists SNP ) && ((GEN[1].GT == '1|0') || (GEN[1].GT == '0|1'))\""
+##sanger_snp_filter_option= "\"(! exists SNP ) & (HE='1')\"" #This was old because snpsifts gt option removes format column from the file.
+dkfz_snp_filter_option = "\"(FILTER == 'PASS') && ((! ID =~ 'rs' ) && ((GEN[1].GT == '1/0') || (GEN[1].GT == '0/1')))\""
+#dkfz_snp_filter_option = "\"(! ID =~ 'rs' ) && ((GEN[1].GT == '1/0') || (GEN[1].GT == '0/1'))\""
+##dkfz_snp_filter_option ="\"(! ID =~ 'rs') & (HE='1') \"" #This was old because snpsifts gt option removes format column from the file.
 broad_snp_filter_option = "\"(! ID =~ 'rs' )\""
-#sanger_snp_filter_option= "\"(! exists SNP ) & (HE='1')\"" #This was old because snpsifts gt option removes format column from the file.
-sanger_snp_filter_option = "\"(! exists SNP ) & ((exists '1|0') || (exists '0|1'))\""
-dkfz_snp_filter_option ="\"(! ID =~ 'rs') & (HE='1') \""
+consensus_snp_filter_option="\"(FILTER == '') && (! exists dbsnp)\""
 
-sanger_indel_filter_option = "\"(! ID =~ 'rs' )\"" 
-#dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & (HE='1')\"" This was old because snpsifts gt option removes format column from the file.
-dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & ((exists '1/0') || (exists '0/1'))\""
+### INDEL ###
+sanger_indel_filter_option = "\"(! ID =~ 'rs' ) && (FILTER == 'PASS')\"" ### filtering NON PASS option is added.
+#sanger_indel_filter_option = "\"(! ID =~ 'rs' )\""
+dkfz_indel_filter_option= "\"(FILTER == 'PASS') && ((! ID =~ 'rs' ) && ((GEN[1].GT == '1/0') || (GEN[1].GT == '0/1')))\""
+##dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) && ((GEN[1].GT == '1/0') || (GEN[1].GT == '0/1'))\""
+###dkfz_indel_filter_option = "\"(! ID =~ 'rs' ) & (HE='1')\"" This was old because snpsifts gt option removes format column from the file.
 broad_indel_filter_option=  "\"(! ID =~ 'rs' )\""
-
+consensus_indel_filter_option="\"(FILTER == '')&& (! exists dbsnp)\""
 
 
 
 
 
 snv_log= open('./final/snv_number.txt','w')
+snv_log_annotated = open('./final/snv_variant_classification_annotated.txt','w')
+snv_log_final= open('./final/snv_variant_classification_final.txt','w')
 snv_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 indel_log =open('./final/indel_number.txt','w')
+indel_log_annotated  = open('./final/indel_variant_classification_annotated.txt','w')
+indel_log_final  = open('./final/indel_variant_classification_final.txt','w')
 indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
 
 snv_log.flush()
@@ -147,10 +169,11 @@ for folder in os.listdir('input/'):
 			else:
 				os.mkdir('./final/%s/%s' % (folder_prefix[folder][1],folder_prefix[folder][0]))
 
-			### analysis method : sanger, dkfz, broad
+			### analysis method : sanger, dkfz, broad or consensus.
 			analysis_method = folder_prefix[folder][2]
-			snv_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
-			indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t')## write to the file which contains all of the numbers
+
+			
+
 
 			output_directory = './final/%s/%s/' % (folder_prefix[folder][1],folder_prefix[folder][0])
 
@@ -174,6 +197,10 @@ for folder in os.listdir('input/'):
 
 				if bool(re.search('somatic.snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
 					analysis_id=name.split('.')[0]
+					
+					snv_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+					snv_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+					snv_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
 
 					start=time.time()
 
@@ -182,13 +209,15 @@ for folder in os.listdir('input/'):
 
 					if analysis_method == 'sanger':
 
-						annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt','-u' './input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
+						annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt','-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',sanger_snp_filter_option, '>', output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
 					elif analysis_method == 'dkfz':
 
 						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', '-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_snp_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
 
-					#elif belki muse eklenir buraya:
+					elif analysis_method == 'consensus':
+						annotation_script=' '.join(['java','-jar',SnpSiftjarpath,'filter', consensus_snp_filter_option, './input/%s/' % folder  + name, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])
+
 
 					else:
 						### broad icin ###
@@ -200,6 +229,10 @@ for folder in os.listdir('input/'):
 						print whattimeisit(), "**Annotating %s SNV" % folder_prefix[folder][0]
 						subprocess.check_call(annotation_script, shell=True)
 						print whattimeisit(), 'Annotation of SNV Took', time.time() - start,'to run....'
+						variantclassificationcounter(output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method,snv_log_annotated) ### we would like to see how variants separated through different mutation types 
+					
+				
+					
 					print whattimeisit(),"**Patient %s SNV has already annotated, cleaving step will be initiated" % folder_prefix[folder][0]
 					print whattimeisit(), "***Cleaving spesific regions given by %s" % bed_file_input
 					start=time.time()
@@ -209,9 +242,11 @@ for folder in os.listdir('input/'):
 					### takes only the mutations within given bed region ###
 					vcf_isolation_bash_script =['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, bed_file_input, '>',  output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method + '.vcf']
 					subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
+					
+					variantclassificationcounter(output_directory + "final." + analysis_id + ".snv_mnv_" + analysis_method + '.vcf',snv_log_final) ### variant classification is written.
 
 					### counts the mutations
-					mutation_count_line=[bedtoolspath,'intersect', '-a' ,  output_directory + 'annotated_full.' + analysis_id + ".snv_mnv_" + analysis_method ,'-b',bed_file_input, '|' ,'wc']
+					mutation_count_line=[bedtoolspath,'intersect', '-a' , output_directory + 'annotated_full.' + analysis_id + ".snv_mnv_" + analysis_method ,'-b',bed_file_input, '|' ,'wc']
 
 					### count is the count of mutation counts around given bed regions ###
 					count = subprocess.check_output(' '.join(mutation_count_line),shell = True)
@@ -254,6 +289,10 @@ for folder in os.listdir('input/'):
 				elif bool(re.search('somatic.indel.vcf.gz$', name)): #### INDEL PART ####
 					analysis_id=name.split('.')[0]
 					start=time.time()
+					
+					indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t')## write to the file which contains all of the numbers
+					indel_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+					indel_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
 
 
 
@@ -268,7 +307,9 @@ for folder in os.listdir('input/'):
 						annotation_script = ' '.join(['java','-jar',SnpSiftjarpath ,'gt', '-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',dkfz_indel_filter_option, '>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
 
 
-					#elif belki muse eklenir buraya:
+					elif analysis_method == 'consensus':
+						annotation_script=' '.join(['java','-jar',SnpSiftjarpath,'filter', consensus_indel_filter_option, './input/%s/' % folder  + name, '>' ,output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method])
+
 
 					else:
 
@@ -280,13 +321,19 @@ for folder in os.listdir('input/'):
 						print whattimeisit(),"**Annotating %s Indel" % folder_prefix[folder][0]
 						subprocess.check_call(annotation_script,shell=True)
 						print whattimeisit(),'Annotation of Indel Took', time.time() - start,'to run....'
-					print whattimeisit(),"**Patient %s SNV has already annotated, cleaving step will be initiated"  % folder_prefix[folder][0]
+						variantclassificationcounter(output_directory+'annotated_full.' + analysis_id+'.indel_'+analysis_method,indel_log_annotated) ### we would like to see how variants separated through different mutation types 
+						
+					
+					
+					print whattimeisit(),"**Patient %s Indel has already annotated, cleaving step will be initiated"  % folder_prefix[folder][0]
 					print whattimeisit(),"***Cleaving spesific regions given by %s" % bed_file_input
 					# vcf_isolation_bash_script=["/mnt/kufs/scratch/tmorova15/softwares/vcftools_0.1.13/bin/vcftools","--gzvcf", output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, "--bed" ,  bed_file_input , "--recode" ,"--recode-INFO-all", "--out", output_directory + "final." + analysis_id + ".indel_" + analysis_method ]
 					# r1=subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
 
 					vcf_isolation_bash_script =['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, bed_file_input, '>',  output_directory + "final." + analysis_id + ".indel_" + analysis_method + '.vcf']
 					subprocess.check_call(' '.join(vcf_isolation_bash_script),shell=True)
+					
+					variantclassificationcounter(output_directory + "final." + analysis_id + ".indel_" + analysis_method + '.vcf',indel_log_final) ### variant classification is written.
 
 					### counts the mutations
 					mutation_count_line=[bedtoolspath,'intersect', '-a' ,  output_directory + 'annotated_full.' + analysis_id+'.indel_'+analysis_method,'-b',bed_file_input, '|' ,'wc']
@@ -332,6 +379,11 @@ for folder in os.listdir('input/'):
 
 
 snv_log.close()
+snv_log_annotated.close()
 indel_log.close()
+indel_log_annotated.close()
+
+
+
 
 print whattimeisit(),'Process has finalized without any error ! Well Done !!'
