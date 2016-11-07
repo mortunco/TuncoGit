@@ -6,9 +6,9 @@ import argparse
 
 parser = argparse.ArgumentParser(description='This code splits a sigle folder to the sub directories.')
 parser.add_argument("-p",type=str,help='Path to the directory which contains the directory that contains all patients files')
-parser.add_argument("--dirname",help='name of the directory that contains patient info.')
+parser.add_argument("--dirname",help='name of the directory that contains patient info which is located under project directory.')
 parser.add_argument('-n',type=int,help='Number of cores allocated in total')
-parser.add_argument('-q',type=str,help='Full path of the qsub file')
+parser.add_argument('-q',type=str,help='Name of the qsub file under the project folder.')
 
 
 args=parser.parse_args()

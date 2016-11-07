@@ -85,9 +85,10 @@ project_names=list(set(project_names))
 
 structural_log= open('{0}/SV_number.txt'.format(topdirectory),'w')
 structural_log.write('#### patientid Possible TMPRSS2:ERG|FilePathinYUNUS\n')
+structural_log2=open('{0}/SV_location.txt'.format(topdirectory),'w')
 
 structural_log.flush()
-
+structural_log2.flush()
 ETSfamily=['ERG','ETV1','ETV4','ETV5']
 for batch in batchlist:
 	for folder in os.listdir('{0}/input/'.format(batch)):
@@ -105,7 +106,7 @@ for batch in batchlist:
 
 				### analysis method : sanger, dkfz, broad
 				analysis_method = folder_prefix[folder][2]
-				structural_log.write(folder_prefix[folder][1]+'\t'+ folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+				
 				#indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t')## write to the file which contains all of the numbers
 
 
@@ -127,7 +128,13 @@ for batch in batchlist:
 						for member in tar.getnames():
 							if 'annot.bedpe' in member:
 								SVvcf=tar.extractfile(member)
+								structural_log.write(folder_prefix[folder][1]+'\t'+ folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
 								structural_log.write(analysis_id + '\t')
+								
+								structural_log2.write(folder_prefix[folder][1]+'\t'+ folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+								structural_log2.write(analysis_id + '\t')									
+								
+								### SOME PATIENTS HAVE MULTIPLE TMPRSS ERG FUSIONS IN THEIR GENOME THEREFORE. AFTER A  SPECIMEN THERE MIGHT BE MORE THAN SINGLE TMPRSS2:ERG FUSION ENTRIES.###
 								for line in SVvcf:
 									TMPRSS2count=0
 									ETScount=0
@@ -148,17 +155,21 @@ for batch in batchlist:
 									if TMPRSS2count * ETScount > 0:
 
 										structural_log.write(str(TMPRSS2count * ETScount) + '|' + line[27]+':'+line[36] +'|' + line[45] + '\t')
+										structural_log2.write(line[45] +'|'+ line[27] +':'+ line[0] + ':' + line[1] + ':' + line[2] + '|' + line[36] +':'+ line[3] + ':' + line[4] + ':' +  line[5]+ '\t')
 
-
+								structural_log.write('\n')
+								structural_log2.write('\n')
 
 
 
 
 
 				structural_log.write('\n')
+				structural_log2.write('\n')
 
 
 structural_log.close()
+structural_log2.close()
 
 
 print whattimeisit(),'Process has finalized without any error ! Well Done !!'
