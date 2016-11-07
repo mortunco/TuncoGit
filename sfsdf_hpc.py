@@ -2,7 +2,7 @@
 ### this hpc version ###
 ### STABLE VERSION ###
 
-#### eger bunu goruyorsam ####
+
 import os
 import re
 import subprocess
@@ -33,6 +33,38 @@ def variantclassificationcounter(filename,textfilename):
 for item in vars(args): ###
 	if getattr(args,item) == None:
 		raise ValueError , "All arguments must be set"
+
+
+def BEDbootstrap(logfilename,SNV,verbose):		
+	'''This code handles bootstrapping of the spesific mutation. It returns False Discovery Rate probability by comparing with random locations in the genome
+	It requires relative location of the randombed files from the top folder. logfilename is to determine in which file it will write the output. Type of mutation that will determine which annotated vcf file.(.snv_mnv_ or .indel_)
+	and finally verbose option to for the debugging. Verbose option write the number of the mutation found in each random bed file.'''
+	random_counter=0
+	
+	if SNV == True:
+		mutation_type='.snv_mnv_'
+	else:
+		mutation_type='.indel_'
+	
+	for n,randombed in enumerate(os.listdir('./final/randombeds')):
+							
+		sys.stdout.write("\r{0}".format(randombed))
+		sys.stdout.flush()
+		random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+ mutation_type +analysis_method, './final/randombeds/'+ randombed, '|',\
+		bedtoolspath,'intersect', '-a' ,"-",'-b','./final/randombeds/'+ randombed, '|' ,'wc']
+		#print random_isolation_bash_script
+
+		random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
+		random_mutation_count=int(random_mutation_count.rstrip().split()[0])
+		if int(count[0]) <= int(random_mutation_count):
+			#print 'snv'
+			#print 'count',count[0]
+			#print 'random_no', random_mutation_count[0]
+			random_counter += 1
+		if verbose == True: logfilename.write(str(random_mutation_count) + '\t')
+	
+	return random_counter
+
 
 
 with open('/mnt/kufs/scratch/tmorova15/references/reference_dictionaries/reference_dict.p','rb') as fp:
@@ -137,10 +169,13 @@ snv_log= open('./final/snv_number.txt','w')
 snv_log_annotated = open('./final/snv_variant_classification_annotated.txt','w')
 snv_log_final= open('./final/snv_variant_classification_final.txt','w')
 snv_log.write('#### patientid found_mutations|number_of_total_mutations\n')
+snv_randomized_log=open('./final/snv_randomized_mutation_counts.txt','w')
+
 indel_log =open('./final/indel_number.txt','w')
 indel_log_annotated  = open('./final/indel_variant_classification_annotated.txt','w')
 indel_log_final  = open('./final/indel_variant_classification_final.txt','w')
 indel_log.write('#### patientid found_mutations|number_of_total_mutations\n')
+indel_randomized_log=open('./final/indel_randomized_mutation_counts.txt','w')
 
 snv_log.flush()
 indel_log.flush()
@@ -156,7 +191,10 @@ for folder in os.listdir('input/'):
 
 
 		if folder not in folder_prefix.keys():
-			os.mkdir('./final/Problematic_id/%s' % folder)
+			if not os.path.exists('final/Problematic_id/{0}'.format(folder)):
+				os.mkdir('./final/Problematic_id/%s' % folder)
+			else:
+				pass
 
 
 
@@ -189,8 +227,8 @@ for folder in os.listdir('input/'):
 			print 'Took', time.time() - start,'to run....'
 
 			### Random Vcf Genaration ###
-			if not os.path.exists(output_directory + 'random_vcfs'):
-				os.mkdir(output_directory + 'random_vcfs')
+			# if not os.path.exists(output_directory + 'random_vcfs'):
+			# 	os.mkdir(output_directory + 'random_vcfs')
 
 
 			for name in os.listdir('input/%s' % folder):
@@ -198,10 +236,10 @@ for folder in os.listdir('input/'):
 				if bool(re.search('somatic.snv_mnv.vcf.gz$', name)): ### checks if snv_mnv.vcf.gz in the iterated variable
 					analysis_id=name.split('.')[0]
 					
-					snv_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
-					snv_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
-					snv_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
-
+					snv_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' +  analysis_id + '\t') ## write to the file which contains all of the numbers
+					snv_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' + analysis_id + '\t') ## write to the file which contains all of the numbers
+					snv_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' +  analysis_id + '\t') ## write to the file which contains all of the numbers
+					snv_randomized_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' +  analysis_id + '\t') ## write to the file which contains all of the randomized mutations.
 					start=time.time()
 
 
@@ -271,18 +309,22 @@ for folder in os.listdir('input/'):
 
 					### bootstrap ###
 					start=time.time()
-					random_counter=0
-					for n,randombed in enumerate(os.listdir('./final/randombeds')):
-						sys.stdout.write("\r{0}".format(randombed))
-						sys.stdout.flush()
-						random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, './final/randombeds/'+ randombed, '|',\
-						bedtoolspath,'intersect', '-a' ,"-",'-b',bed_file_input, '|' ,'wc']
-
-						random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
-						if count < random_mutation_count:
-							random_counter += 1
-					snv_log.write(str(random_counter/float(randombedcount)) + '\t')
-
+					# random_counter=0
+					# for n,randombed in enumerate(os.listdir('./final/randombeds')):
+					# 	sys.stdout.write("\r{0}".format(randombed))
+					# 	sys.stdout.flush()
+					# 	random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method, './final/randombeds/'+ randombed, '|',\
+					# 	bedtoolspath,'intersect', '-a' ,"-",'-b',bed_file_input, '|' ,'wc']
+					# 
+					# 	random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
+					# 	if count < random_mutation_count:
+					# 		random_counter += 1
+					# snv_log.write(str(random_counter/float(randombedcount)) + '\t')
+					
+					random_counter=BEDbootstrap(logfilename = snv_randomized_log, SNV=True, verbose=True)
+					snv_randomized_log.write('\n') ### to go to the next patient
+					snv_randomized_log.flush()
+					snv_log.write(str(float(random_counter) / float(randombedcount)) + '\t')
 					snv_log.flush()
 					print whattimeisit(), 'Bootstraping of SNV Took', time.time() - start,'to run....'
 
@@ -290,9 +332,10 @@ for folder in os.listdir('input/'):
 					analysis_id=name.split('.')[0]
 					start=time.time()
 					
-					indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t')## write to the file which contains all of the numbers
-					indel_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
-					indel_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t') ## write to the file which contains all of the numbers
+					indel_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' + analysis_id + '\t')## write to the file which contains all of the numbers
+					indel_log_annotated.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' + analysis_id + '\t') ## write to the file which contains all of the numbers
+					indel_log_final.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' + analysis_id + '\t') ## write to the file which contains all of the numbers
+					indel_randomized_log.write(folder_prefix[folder][0] + '\t' + analysis_method +'\t' +  analysis_id + '\t')
 
 
 
@@ -352,19 +395,26 @@ for folder in os.listdir('input/'):
 					print whattimeisit(), 'Cleavage of Indel Took', time.time() - start,'to run....'
 
 					start=time.time()
-					random_counter=0
-					for n,randombed in enumerate(os.listdir('./final/randombeds')):
-						sys.stdout.write("\r{0}".format(randombed))
-						sys.stdout.flush()
-						random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, './final/randombeds/'+ randombed, '|',\
-						bedtoolspath,'intersect', '-a' ,"-",'-b',bed_file_input, '|' ,'wc']
+					# random_counter=0
+					# for n,randombed in enumerate(os.listdir('./final/randombeds')):
+					# 	sys.stdout.write("\r{0}".format(randombed))
+					# 	sys.stdout.flush()
+					# 	random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' , output_directory+ 'annotated_full.' + analysis_id+'.indel_'+analysis_method, './final/randombeds/'+ randombed, '|',\
+					# 	bedtoolspath,'intersect', '-a' ,"-",'-b',bed_file_input, '|' ,'wc']
+					# 
+					# 	random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
+					# 	if count < random_mutation_count:
+					# 		random_counter += 1
 
-						random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
-						if count < random_mutation_count:
-							random_counter += 1
-
-					indel_log.write(str(random_counter/float(randombedcount)) + '\t')
+					# indel_log.write(str(random_counter/float(randombedcount)) + '\t')
+					# indel_log.flush()
+					random_counter=BEDbootstrap(logfilename = indel_randomized_log, SNV=False, verbose=True)
+					indel_randomized_log.write('\n') ### to go to the next patient 
+					indel_randomized_log.flush()
+					indel_log.write(str( float(random_counter) / float(randombedcount) ) + '\t')
 					indel_log.flush()
+					
+
 
 					print whattimeisit(), 'Bootstraping of Indel Took', time.time() - start,'to run....'
 
@@ -380,8 +430,10 @@ for folder in os.listdir('input/'):
 
 snv_log.close()
 snv_log_annotated.close()
+snv_randomized_log.close()
 indel_log.close()
 indel_log_annotated.close()
+indel_randomized_log.close()
 
 
 
