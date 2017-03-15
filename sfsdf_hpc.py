@@ -193,6 +193,7 @@ for folder in os.listdir('input/'):
 		if folder not in folder_prefix.keys():
 			if not os.path.exists('final/Problematic_id/{0}'.format(folder)):
 				os.mkdir('./final/Problematic_id/%s' % folder)
+		
 			else:
 				pass
 
