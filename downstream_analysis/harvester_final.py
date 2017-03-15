@@ -27,6 +27,7 @@ os.mkdir('{0}_final_snvlog_from_all_batches'.format(args.name))
 os.mkdir('{0}_variant_classification_snv'.format(args.name))
 os.mkdir('{0}_final_indellog_from_all_batches'.format(args.name))
 os.mkdir('{0}_variant_classification_indel'.format(args.name))
+os.mkdir('{0}_randomizedmutation_counts'.format(args.name))
 
 
 print batchlist
@@ -35,37 +36,69 @@ print batchlist
 for folder in batchlist:
 	print folder
 	
-	### SNV Mutation No#
-	os.rename('{0}/final/snv_number.txt'.format(folder),folder+'/final/'+'snv_number'+folder+'.txt')
-	shutil.move(folder+'/final/'+'snv_number'+folder+'.txt','{0}_final_snvlog_from_all_batches/'.format(args.name)+'snv_number'+folder+'.txt' )
+	try:
+		### SNV Mutation No#
+		os.rename('{0}/final/snv_number.txt'.format(folder),folder+'/final/'+'snv_number'+folder+'.txt')
+		shutil.move(folder+'/final/'+'snv_number'+folder+'.txt','{0}_final_snvlog_from_all_batches/'.format(args.name)+'snv_number'+folder+'.txt' )
+	except:
+		print '{0}/final/snv_number.txt'.format(folder) , 'NOT FOUND!'
+		
+	try:
+		### SNV all Variant Distribution ###
+		os.rename('{0}/final/snv_variant_classification_annotated.txt'.format(folder),folder+'/final/'+'snv_variant_classification_annotated'+folder+'.txt')
+		shutil.move(folder+'/final/'+'snv_variant_classification_annotated'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'snv_variant_classification_annotated_'+folder+'.txt')
+	except:
+		print '{0}/final/snv_variant_classification_annotated.txt'.format(folder) , 'NOT FOUND!'
 	
-	### SNV all Variant Distribution ###
-	os.rename('{0}/final/snv_variant_classification_annotated.txt'.format(folder),folder+'/final/'+'snv_variant_classification_annotated'+folder+'.txt')
-	shutil.move(folder+'/final/'+'snv_variant_classification_annotated'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'snv_variant_classification_annotated_'+folder+'.txt')
+	try:
+		### SNV final Variant Distribution ###
+		os.rename('{0}/final/snv_variant_classification_final.txt'.format(folder),folder+'/final/'+'snv_variant_classification_final'+folder+'.txt')
+		shutil.move(folder+'/final/'+'snv_variant_classification_final'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'snv_variant_classification_final_'+folder+'.txt')
+	except:
+		print '{0}/final/snv_variant_classification_final.txt'.format(folder) , "NOT FOUND !"
+		
+	try:
+		### SNV Randomized Mutation No#
+		os.rename('{0}/final/snv_randomized_mutation_counts.txt'.format(folder),folder+'/final/'+'snv_randomized_mutation_counts'+folder+'.txt')
+		shutil.move(folder+'/final/'+'snv_randomized_mutation_counts'+folder+'.txt','{0}_randomizedmutation_counts/'.format(args.name)+'snv_randommut_number'+folder+'.txt' )
+	except:
+		print '{0}/final/snv_randomized_mutation_counts.txt'.format(folder) , "NOT FOUND!"
 	
-	### SNV final Variant Distribution ###
-	os.rename('{0}/final/snv_variant_classification_final.txt'.format(folder),folder+'/final/'+'snv_variant_classification_final'+folder+'.txt')
-	shutil.move(folder+'/final/'+'snv_variant_classification_final'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'snv_variant_classification_final_'+folder+'.txt')
+	try:
+		### Indel Mutation No#
+		os.rename('{0}/final/indel_number.txt'.format(folder),folder+'/final/'+'indel_number'+folder+'.txt')
+		shutil.move(folder+'/final/'+'indel_number'+folder+'.txt','{0}_final_indellog_from_all_batches/'.format(args.name)+'indel_number'+folder+'.txt')
+	except:
+		print '{0}/final/indel_number.txt'.format(folder) , "NOT FOUND !"
 	
-	### Indel Mutation No#
-	os.rename('{0}/final/indel_number.txt'.format(folder),folder+'/final/'+'indel_number'+folder+'.txt')
-	shutil.move(folder+'/final/'+'indel_number'+folder+'.txt','{0}_final_indellog_from_all_batches/'.format(args.name)+'indel_number'+folder+'.txt')
+	try:
+		
+		### Indel Randomized Mutation No#
+		os.rename('{0}/final/indel_randomized_mutation_counts.txt'.format(folder),folder+'/final/'+'indel_randomized_mutation_counts'+folder+'.txt')
+		shutil.move(folder+'/final/'+'indel_randomized_mutation_counts'+folder+'.txt','{0}_randomizedmutation_counts/'.format(args.name)+'indel_randommut_number'+folder+'.txt' )
+	except:
+		print '{0}/final/indel_randomized_mutation_counts.txt'.format(folder) , "NOT FOUND !"
 	
-	### Indel all Variant Distribution ###
-	os.rename('{0}/final/indel_variant_classification_annotated.txt'.format(folder),folder+'/final/'+'indel_variant_classification_annotated'+folder+'.txt')
-	shutil.move(folder+'/final/'+'indel_variant_classification_annotated'+folder+'.txt','{0}_variant_classification_indel/'.format(args.name)+'indel_variant_classification_annotated_'+folder+'.txt')
+	try:
+		
+		### Indel all Variant Distribution ###
+		os.rename('{0}/final/indel_variant_classification_annotated.txt'.format(folder),folder+'/final/'+'indel_variant_classification_annotated'+folder+'.txt')
+		shutil.move(folder+'/final/'+'indel_variant_classification_annotated'+folder+'.txt','{0}_variant_classification_indel/'.format(args.name)+'indel_variant_classification_annotated_'+folder+'.txt')
+	except:
+		print '{0}/final/indel_variant_classification_annotated.txt'.format(folder) , 'NOT FOUND !'
 	
-	### Indel final Variant Distributio ###
-	os.rename('{0}/final/indel_variant_classification_final.txt'.format(folder),folder+'/final/'+'indel_variant_classification_final'+folder+'.txt')
-	shutil.move(folder+'/final/'+'indel_variant_classification_final'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'indel_variant_classification_final_'+folder+'.txt')
+	try:
+		### Indel final Variant Distributio ###
+		os.rename('{0}/final/indel_variant_classification_final.txt'.format(folder),folder+'/final/'+'indel_variant_classification_final'+folder+'.txt')
+		shutil.move(folder+'/final/'+'indel_variant_classification_final'+folder+'.txt','{0}_variant_classification_snv/'.format(args.name)+'indel_variant_classification_final_'+folder+'.txt')
+	except:
+		print '{0}/final/indel_variant_classification_final.txt'.format(folder) , 'NOT FOUND !'
 	
-	
-
-
-	### For processesed indels
-	subprocess.check_call(" ".join(['rsync','-av','--exclude="randombeds/"','--exclude="*/*/annotated_full.*"',folder+'/final/','{0}_final_output_from_all_batches/'.format(args.name)]) ,shell=True) ### keeps final directory
+	### For processesed snv&indels
+	subprocess.check_call(" ".join(['rsync','-av','--exclude="randombeds/"','--exclude="*/*/annotated_full.*"',folder+'/final/','{0}_final_output_from_all_batches/'.format(args.name)]),shell=True) ### keeps final directory
 	##subprocess.check_call(" ".join(['rm','-rf','--',folder+'/final']) ,shell=True )
 	##os.mkdir(folder + '/final')
+		
 
 	#### For input files
 	subprocess.check_call(" ".join(['rsync','-av','--exclude="randombeds/"','--exclude="*/*/final.*"',folder+'/final/','{0}_annotated_output_from_all_batches/'.format(args.name)]) ,shell=True) ### keeps annotated files
