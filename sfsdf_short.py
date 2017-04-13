@@ -55,8 +55,9 @@ def BEDbootstrap(logfilename,SNV,verbose):
 		sys.stdout.write("\r{0}".format(randombed))
 		sys.stdout.flush()
 		### checks the number of mutations found in given bed proximity for each randomized Bed.### 
-		random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' ,output_directory+'annotated_full.' + os.path.splitext(name)[0] , './final/randombeds/'+ randombed, '|',\
-		bedtoolspath,'intersect', '-a' ,"-",'-b','./final/randombeds/'+ randombed, '|' ,'wc']
+		#random_isolation_bash_script = ['java','-jar',SnpSiftjarpath,'interval', '-i' ,output_directory+'annotated_full.' + os.path.splitext(name)[0] , './final/randombeds/'+ randombed, '|',\
+		#bedtoolspath,'intersect', '-a' ,"-",'-b','./final/randombeds/'+ randombed, '|' ,'wc']
+		random_isolation_bash_script = [bedtoolspath, 'intersect','-a' ,output_directory+'annotated_full.' + os.path.splitext(name)[0] , '-b','./final/randombeds/'+ randombed, '|','wc']
 		#print random_isolation_bash_script
 
 		random_mutation_count=subprocess.check_output(' '.join(random_isolation_bash_script),shell=True)
@@ -85,6 +86,7 @@ randombedcount=args.it
 SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
+gapped_genome_file='/mnt/kufs/scratch/tmorova15/references/gap_regions_grch37.bed'
 
 
 ### SNP ###
@@ -95,7 +97,8 @@ dkfz_snp_filter_option = "\"(FILTER == 'PASS') && ((! ID =~ 'rs' ) && ((GEN[1].G
 #dkfz_snp_filter_option = "\"(! ID =~ 'rs' ) && ((GEN[1].GT == '1/0') || (GEN[1].GT == '0/1'))\""
 ##dkfz_snp_filter_option ="\"(! ID =~ 'rs') & (HE='1') \"" #This was old because snpsifts gt option removes format column from the file.
 broad_snp_filter_option = "\"(! ID =~ 'rs' )\""
-consensus_snp_filter_option="\"(FILTER == '') && (! exists dbsnp)\""
+#consensus_snp_filter_option="\"(FILTER == '') && (! exists dbsnp)\"" ##Deprecated after getting an error states if dbsnp is now existed in a VCF header, it will stop the process ##
+consensus_snp_filter_option="\"(! ID =~ 'rs')\""
 
 ### INDEL ###
 sanger_indel_filter_option = "\"(! ID =~ 'rs' ) && (FILTER == 'PASS')\"" ### filtering NON PASS option is added.
@@ -134,7 +137,7 @@ for folder in os.listdir('input/'):
 			### Random bed generation if not exists ###
 			print whattimeisit(), 'Genarating Random Bed Files...'
 			for i in range(randombedcount):
-				random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'>', './final/randombeds/random_' + '%s' % str(i)])
+				random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'-excl',gapped_genome_file,'>', './final/randombeds/random_' + '%s' % str(i)])
 				subprocess.check_call(random_commandline,shell= True)
 
 		print 'Took', time.time() - start,'to run....'
@@ -158,7 +161,7 @@ for folder in os.listdir('input/'):
 				
 				### Annotation scriptin sonuna os.path.splitext(name)[0] ibaresini koymamin sebebi, snpEff gz gorunce gunzipliyor ama dosya daha ocneden ziplenmis durumdaysa error veriyor. Gz den kurtulmak icin koyuldu. ###
 				annotation_script =' '.join(['java','-jar',SnpSiftjarpath ,'gt','-u','./input/%s/' % folder  + name , '|' ,'java','-jar',SnpSiftjarpath,'filter',consensus_snp_filter_option, '>', output_directory+'annotated_full.' + os.path.splitext(name)[0] ])
-
+			
 
 				#elif analysis_method == 'consensus':
 				#	annotation_script=' '.join(['java','-jar',SnpSiftjarpath,'filter', consensus_snp_filter_option, './input/%s/' % folder  + name, '>' ,output_directory+'annotated_full.' + analysis_id+'.snv_mnv_'+analysis_method])

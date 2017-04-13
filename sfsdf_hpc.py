@@ -14,6 +14,7 @@ import collections
 parser = argparse.ArgumentParser(description='This code runs annotation of VCFs and filtration of the annotated file based on a given location file')
 parser.add_argument('-p',type=str, help='path of the top folder which contains input and final directories.')
 parser.add_argument('-l',type=str, help='bed formatted full file path that tell in which locations we should survey.')
+parser.add_argument('-it',type=int,help='Number of iterations will be run by bootstrapping step. Default = 1000', default=1000)
 args=parser.parse_args()
 
 def whattimeisit():
@@ -136,7 +137,7 @@ for project_id in project_names:
 bed_file_input=args.l
 chromsizes='/mnt/kufs/scratch/tmorova15/references/GRCh37.genome.txt'
 bedtoolspath='/mnt/kufs/scratch/tmorova15/bcbio/bin/bedtools'
-randombedcount=1000
+randombedcount=args.it
 SnpSiftjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/SnpSift.jar'
 SnpEffjarpath='/mnt/kufs/scratch/tmorova15/softwares/snpEff/snpEff.jar'
 annotation_file_path='/mnt/kufs/scratch/tmorova15/references/common_all_20160601.vcf'
@@ -222,7 +223,7 @@ for folder in os.listdir('input/'):
 				### Random bed generation if not exists ###
 				print whattimeisit(), 'Genarating Random Bed Files...'
 				for i in range(randombedcount):
-					random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'>', './final/randombeds/random_' + '%s' % str(i)])
+					random_commandline=' '.join([bedtoolspath,'shuffle', '-chrom','-i',bed_file_input,'-g',chromsizes,'-excl',gapped_genome_file,'>', './final/randombeds/random_' + '%s' % str(i)])
 					subprocess.check_call(random_commandline,shell= True)
 
 			print 'Took', time.time() - start,'to run....'
